@@ -1,6 +1,8 @@
 import random
 import numpy as np
 import sys
+import itertools
+import pprint
 
 usepytwo = False
 if sys.version_info[0] < 3:
@@ -62,45 +64,60 @@ def simulator(s, a):
     return (pdp, hcp), r
 
 
-# def get_best_action():
-#     # Generate 1000 evidences
-#
+def get_error(r, y, Q, s, a, sp):
+    # get the max
+    mx = max(Q[str((sp, 1))], max(Q[str((sp, 2))], Q[str((sp, 1))]))
+    return abs((r + y * mx) - Q[str((s, a))])
+
+
+def update_q_table(s, a, sp, Q, r):
+    alpha = .1
+    y = 0.75
+    key = str((s, a))
+    mx = max(Q[str((sp, 1))], max(Q[str((sp, 2))], Q[str((sp, 3))]))
+    Q[key] = Q[key] + alpha * (r + y*mx - Q[key])
+
+
+def get_best_action(s, Q):
+    number = random.randint(1, 100)
+    if number < 10:
+        return random.randint(1, 3)
+    else:
+        rewards = [Q[str((s, 1))], Q[str((s, 2))], Q[str((s, 3))]]
+        max_num = max(rewards)
+        max_idx = []
+        for i in [0, 1, 2]:
+            if max_num == rewards[i]:
+                max_idx.append(i + 1)
+        return max_idx[random.randint(0, len(max_idx)-1)]
+
 
 ## a simple test program to show how this works
 if __name__ == "__main__":
-
     # default initial state- must be (0,0)
-    s = (0, 0)
-    a = 1
+    Q = {}
+    pp = pprint.PrettyPrinter(2)
+    possible_inputs = itertools.product(itertools.product([0, 1, 2, 3], [0, 1, 2, 3]), [1, 2, 3])
+    for i in possible_inputs:
+        Q[str(i)] = 0.0
+
     sumr = 0
-    while a > 0:
-        # if s[1] == 0:
-        #     print("its your first choice of door")
-        # else:
-        #     print("its your second choice of door. your first choice was " + str(
-        #         s[0]) + " and the host chose door " + str(s[1]))
-        ## print("the current state is pd: "+str(s[0])+" hd: "+str(s[1]))
+    r = 0
+    y = 0.75
+    s = (0, 0)
+    sp = 0
 
-        ### HERE YOU CAN GET YOUR BEST ACTION ACCORDING TO YOUR Q FUNCTION IF YOU LIKE
-        #### print("Q learning advises choice: "+str(my_qlearning_best_next_action))
+    has_converged = False
+    while not has_converged:
+        sum_err = 0
+        for step in range(0, 1000):
+            a = get_best_action(s, Q)
+            (sp, r) = simulator(s, a)
+            update_q_table(s, a, sp, Q, r)
+            sum_err += get_error(r, y, Q, s, a, sp)
+            s = sp
+        has_converged = (sum_err / 1000) < 0.1
 
-        # sa = "-1"
-        # while sa == "-1":
-        #     if usepytwo:
-        #         sa = raw_input("choose door (1,2,3 or 0 to quit):")
-        #     else:
-        #         sa = input("choose door (1,2,3 or 0 to quit):")
-        #     if not (sa == "0" or sa == "1" or sa == "2" or sa == "3"):
-        #         sa = "-1"
-        # a = int(sa)
-        # if not a == 0:
-        #     (sp, r) = simulator(s, a)
-        #     sumr = sumr + r
-        #     if sp[1] == 0:
-        #         if r == 0:
-        #             print("****************** You won a goat :( oh well better luck next time")
-        #         else:
-        #             print("****************** You won the car!!!!!!! Congratulations!!!")
-        #         print("total number of cars won so far: " + str(sumr))
-            ## print("the new state is pd: "+str(sp[0])+" hd: "+str(sp[1])+" and reward achieved was: "+str(r))
-        s = sp
+    print "pd\thc\t1\t\t2\t\t3"
+    for t_s in itertools.product([0, 1, 2, 3], [0, 1, 2, 3]):
+        print "%s\t%s\t%.2f\t%.2f\t%.2f" % (t_s[0], t_s[1], Q[str(((t_s[0], t_s[1]), 1))], Q[str(((t_s[0], t_s[1]), 2))], Q[str(((t_s[0], t_s[1]), 3))])
